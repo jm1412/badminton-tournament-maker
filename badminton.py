@@ -1,8 +1,8 @@
 import streamlit as st
 import requests
 
-# FastAPI backend URL
-BACKEND_URL = "http://your-username.pythonanywhere.com"
+# Flask backend URL
+BACKEND_URL = "http://juansymontano.pythonanywhere.com"
 
 st.title("🏸 Badminton Tournament Maker")
 
@@ -28,7 +28,7 @@ if st.button("Create Tournament"):
             f"{BACKEND_URL}/tournaments",
             json={"name": name, "type": type, "password": password}
         )
-        if response.status_code == 200:
+        if response.status_code == 201:
             st.success("Tournament created successfully!")
         else:
             st.error("Failed to create tournament.")
@@ -45,7 +45,7 @@ if st.button("Add Player"):
             f"{BACKEND_URL}/players",
             json={"name": player_name}
         )
-        if response.status_code == 200:
+        if response.status_code == 201:
             st.success("Player added successfully!")
         else:
             st.error("Failed to add player.")
