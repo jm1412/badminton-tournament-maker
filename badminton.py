@@ -1,89 +1,159 @@
-
-
 import streamlit as st
 import requests
 
 # Flask backend URL
-BACKEND_URL = "https://juansymontano.eu.pythonanywhere.com/"
+BACKEND_URL = "http://127.0.0.1:5000"  # Update if hosted elsewhere
 
-st.title("🏸 Badminton Tournament Maker")
+# Page configuration
+st.set_page_config(page_title="🏸 Badminton Tournament Maker", layout="wide")
 
-# Fetch tournaments from backend
-st.write("### Tournaments")
-response = requests.get(f"{BACKEND_URL}/tournaments")
-if response.status_code == 200:
-    tournaments = response.json()
-    for tournament in tournaments:
-        st.write(f"- {tournament['name']} ({tournament['type']})")
-else:
-    st.error("Failed to fetch tournaments.")
+# Sidebar for navigation with tabs
+st.sidebar.title("Navigation")
 
-# Create a new tournament
-st.write("### Create a New Tournament")
-name = st.text_input("Tournament Name (no spaces):")
-type = st.radio("Tournament Type:", ("Singles", "Doubles"))
-password = st.text_input("Set Admin Password:", type="password")
+# Custom CSS for tabs style
+st.markdown("""
+    <style>
+        .tab {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #f1f1f1;
+            margin-right: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .tab-selected {
+            background-color: #0072bc;
+            color: white;
+        }
+        .tabs-container {
+            display: flex;
+            flex-wrap: nowrap;
+            margin-top: 20px;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-if st.button("Create Tournament"):
-    if name and password:
-        response = requests.post(
-            f"{BACKEND_URL}/tournaments",
-            json={"name": name, "type": type, "password": password}
-        )
-        if response.status_code == 201:
-            st.success("Tournament created successfully!")
-        else:
-            st.error("Failed to create tournament.")
-    else:
-        st.error("Please fill in all fields.")
+# Initialize session state
+if 'page' not in st.session_state:
+    st.session_state.page = 'Home'
+if 'selected_tournament' not in st.session_state:
+    st.session_state.selected_tournament = None
 
-# Add a player
-st.write("### Add a Player")
-player_name = st.text_input("Player Name:")
+# Tabs navigation
+tabs = ["Home", "Tournaments", "Players", "Manage Tournament", "Create Tournament"]
+selected_tab = st.sidebar.selectbox("Select Page", tabs)
 
-if st.button("Add Player"):
-    if player_name:
-        response = requests.post(
-            f"{BACKEND_URL}/players",
-            json={"name": player_name}
-        )
-        if response.status_code == 201:
-            st.success("Player added successfully!")
-        else:
-            st.error("Failed to add player.")
-    else:
-        st.error("Please enter a player name.")
+# Update session state based on selected tab
+if selected_tab != st.session_state.page:
+    st.session_state.page = selected_tab
+    st.session_state.selected_tournament = None
 
-# Manage a specific tournament
-st.write("### Manage Tournament")
-tournament_id = st.number_input("Enter Tournament ID:", min_value=1, step=1)
+# Home Page
+if st.session_state.page == "Home":
+    st.title("🏸 Badminton Tournament Maker")
+    st.write("Welcome to the Badminton Tournament Maker! Use the sidebar to navigate and manage your tournaments and players.")
+    st.write("### Quick Links")
+    if st.button("View Tournaments"):
+        st.session_state.page = "Tournaments"
+        st.experimental_set_query_params(page="Tournaments")
+    if st.button("View Players"):
+        st.session_state.page = "Players"
+        st.experimental_set_query_params(page="Players")
 
-if st.button("View Tournament Details"):
-    response = requests.get(f"{BACKEND_URL}/tournaments/{tournament_id}")
+# Tournaments Page
+elif st.session_state.page == "Tournaments":
+    st.title("🏸 Tournaments")
+
+    # Search for tournaments
+    search_query = st.text_input("Search Tournaments:")
+
+    # Fetch and display ongoing tournaments
+    st.write("### Ongoing Tournaments")
+    response = requests.get(f"{BACKEND_URL}/tournaments?status=ongoing&search={search_query}")
     if response.status_code == 200:
-        tournament = response.json()
-        st.write("#### Tournament Details")
-        st.write(tournament["tournament"])
-        st.write("#### Players in Tournament")
-        for player in tournament["players"]:
-            st.write(f"- {player['name']} (Partner: {player.get('partner_id', 'None')})")
+        ongoing_tournaments = response.json()
+        for tournament in ongoing_tournaments:
+            if st.button(f"{tournament['name']} ({tournament['type']})", key=f"ongoing_{tournament['tournament_id']}"):
+                st.session_state.page = "Tournament Details"
+                st.session_state.selected_tournament = tournament['tournament_id']
+                st.experimental_set_query_params(page="Tournament Details", tournament_id=tournament['tournament_id'])
     else:
-        st.error("Failed to fetch tournament details.")
+        st.error("Failed to fetch ongoing tournaments.")
 
-# Add a player to a tournament
-st.write("### Add Player to Tournament")
-player_id = st.number_input("Enter Player ID:", min_value=1, step=1)
-partner_id = st.number_input("Enter Partner ID (for doubles):", min_value=1, step=1, value=None)
+    # Fetch and display recent tournaments
+    st.write("### Recent Tournaments")
+    response = requests.get(f"{BACKEND_URL}/tournaments?status=recent&limit=5&search={search_query}")
+    if response.status_code == 200:
+        recent_tournaments = response.json()
+        for tournament in recent_tournaments:
+            if st.button(f"{tournament['name']} ({tournament['type']})", key=f"recent_{tournament['tournament_id']}"):
+                st.session_state.page = "Tournament Details"
+                st.session_state.selected_tournament = tournament['tournament_id']
+                st.experimental_set_query_params(page="Tournament Details", tournament_id=tournament['tournament_id'])
+    else:
+        st.error("Failed to fetch recent tournaments.")
 
-if st.button("Add Player to Tournament"):
-    if player_id and tournament_id:
-        response = requests.post(
-            f"{BACKEND_URL}/tournaments/{tournament_id}/add_player",
-            json={"player_id": player_id, "partner_id": partner_id}
-        )
-        if response.status_code == 201:
-            st.success("Player added to tournament successfully!")
+    # Button to navigate to Create Tournament page
+    if st.button("Create a New Tournament"):
+        st.session_state.page = "Create Tournament"
+        st.experimental_set_query_params(page="Create Tournament")
+
+# Create Tournament Page
+elif st.session_state.page == "Create Tournament":
+    st.title("🏸 Create a New Tournament")
+    with st.form("create_tournament_form"):
+        name = st.text_input("Tournament Name (no spaces):")
+        categories = st.text_area("Categories (comma-separated):")
+        date_from = st.date_input("Date of Play (From):")
+        date_to = st.date_input("Date of Play (To):")
+        courts = st.number_input("Number of Badminton Courts:", min_value=1, step=1)
+        password = st.text_input("Set Admin Password:", type="password")
+        type = st.radio("Tournament Type:", ("Singles", "Doubles"))
+        submitted = st.form_submit_button("Create Tournament")
+        if submitted:
+            if name and categories and date_from and date_to and courts and password:
+                response = requests.post(
+                    f"{BACKEND_URL}/tournaments",
+                    json={
+                        "name": name,
+                        "categories": categories.split(','),
+                        "date_from": date_from.isoformat(),
+                        "date_to": date_to.isoformat(),
+                        "courts": courts,
+                        "password": password,
+                        "type": type
+                    }
+                )
+                if response.status_code == 201:
+                    st.success("Tournament created successfully!")
+                else:
+                    st.error("Failed to create tournament.")
+            else:
+                st.error("Please fill in all fields.")
+
+# Tournament Details Page
+elif st.session_state.page == "Tournament Details":
+    tournament_id = st.session_state.selected_tournament
+    if tournament_id:
+        response = requests.get(f"{BACKEND_URL}/tournaments/{tournament_id}")
+        if response.status_code == 200:
+            tournament = response.json()
+            st.title(f"🏸 {tournament['name']}")
+            st.write(f"Type: {tournament['type']}")
+            st.write(f"Dates: {tournament['date_from']} to {tournament['date_to']}")
+            st.write(f"Categories: {', '.join(tournament['categories'].split(','))}")
+            st.write(f"Courts: {tournament['courts']}")
+            participants = tournament.get('participants', [])
+            if participants:
+                st.write(f"Participants: {', '.join(participants)}")
+            else:
+                st.write("Participants: None")
+            if st.button("Back"):
+                st.session_state.page = "Tournaments"
+                st.session_state.selected_tournament = None
+                st.experimental_set_query_params(page="Tournaments")
         else:
-            st.error("Failed to add player to tournament.")
+            st.error("Failed to fetch tournament details.")
     else:
-        st.error("Please fill in all fields.")
+        st.error("No tournament selected.")
