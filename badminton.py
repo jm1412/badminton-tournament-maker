@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 
 # Flask backend URL
-BACKEND_URL = "http://juansymontano.pythonanywhere.com"
+BACKEND_URL = "https://juansymontano.eu.pythonanywhere.com/"
 
 st.title("🏸 Badminton Tournament Maker")
 
